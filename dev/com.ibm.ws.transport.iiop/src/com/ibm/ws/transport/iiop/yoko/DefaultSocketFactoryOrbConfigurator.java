@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015,2023 IBM Corporation and others.
+ * Copyright (c) 2015,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
@@ -12,26 +12,26 @@
  */
 package com.ibm.ws.transport.iiop.yoko;
 
-import com.ibm.ws.transport.iiop.spi.IIOPEndpoint;
-import com.ibm.ws.transport.iiop.spi.SubsystemFactory;
+import static org.osgi.service.component.annotations.ConfigurationPolicy.REQUIRE;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
 import org.apache.yoko.osgi.locator.LocalFactory;
 import org.apache.yoko.osgi.locator.Register;
 import org.apache.yoko.osgi.locator.ServiceProvider;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 
-import static org.osgi.service.component.annotations.ConfigurationPolicy.IGNORE;
+import com.ibm.ws.transport.iiop.spi.IIOPEndpoint;
+import com.ibm.ws.transport.iiop.spi.OrbConfigurator;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-@Component(configurationPolicy = IGNORE, property = { "service.vendor=IBM", "service.ranking:Integer=1" })
-public class DefaultSocketFactorySubsystemFactory implements SubsystemFactory {
+@Component(configurationPolicy = REQUIRE, property = { "service.vendor=IBM", "service.ranking:Integer=1" })
+public class DefaultSocketFactoryOrbConfigurator implements OrbConfigurator {
     private static enum MyLocalFactory implements LocalFactory {
         INSTANCE;
         public Class<?> forName(String name) throws ClassNotFoundException {

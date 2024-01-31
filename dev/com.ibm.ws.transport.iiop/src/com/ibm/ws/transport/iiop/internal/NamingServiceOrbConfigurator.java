@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015,2023 IBM Corporation and others.
+ * Copyright (c) 2015,2024 IBM Corporation and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License 2.0
  * which accompanies this distribution, and is available at
@@ -13,7 +13,7 @@
 package com.ibm.ws.transport.iiop.internal;
 
 import static org.apache.yoko.orb.spi.naming.NameServiceInitializer.NS_REMOTE_ACCESS_ARG;
-import static org.osgi.service.component.annotations.ConfigurationPolicy.IGNORE;
+import static org.osgi.service.component.annotations.ConfigurationPolicy.REQUIRE;
 
 import java.util.List;
 import java.util.Map;
@@ -22,10 +22,10 @@ import org.apache.yoko.orb.spi.naming.NameServiceInitializer;
 import org.apache.yoko.orb.spi.naming.RemoteAccess;
 import org.osgi.service.component.annotations.Component;
 
-import com.ibm.ws.transport.iiop.spi.SubsystemFactory;
+import com.ibm.ws.transport.iiop.spi.OrbConfigurator;
 
-@Component(configurationPolicy = IGNORE, property = { "service.vendor=IBM", "service.ranking:Integer=1" })
-public class NamingServiceSubsystemFactory implements SubsystemFactory {
+@Component(configurationPolicy = REQUIRE, property = { "service.vendor=IBM", "service.ranking:Integer=1" })
+public class NamingServiceOrbConfigurator implements OrbConfigurator {
     private static final String INITIALIZER_CLASS_NAME = NameServiceInitializer.class.getName();
 
     @Override
