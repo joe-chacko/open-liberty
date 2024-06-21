@@ -11,7 +11,6 @@
         IBM Corporation - initial API and implementation
  -->
 <server>
-
     <featureManager>
         <feature>servlet-3.1</feature>
         <feature>componenttest-1.0</feature>
@@ -21,5 +20,5 @@
     <include location="../fatTestPorts.xml"/>
     
     <application location="test-servlet.war" />
-
+    <logging traceSpecification="*=info:com.ibm.ws.http.dispatcher.*=all" />
 </server>
