@@ -9,17 +9,13 @@
  *******************************************************************************/
 package com.ibm.ws.http.dispatcher.internal;
 
-import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
 import static org.osgi.service.component.annotations.ReferenceCardinality.OPTIONAL;
 import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
-import static org.osgi.service.component.annotations.ReferencePolicyOption.GREEDY;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,7 +51,6 @@ import com.ibm.wsspi.http.channel.values.HttpHeaderKeys;
 import com.ibm.wsspi.http.ee.behaviors.HttpBehavior;
 import com.ibm.wsspi.http.ee7.HttpTransportBehavior;
 import com.ibm.wsspi.kernel.service.utils.MetatypeUtils;
-import com.ibm.wsspi.threading.ExecutorServiceTaskInterceptor;
 import com.ibm.wsspi.timer.ApproximateTime;
 import com.ibm.wsspi.timer.QuickApproxTime;
 
@@ -93,16 +88,10 @@ public class HttpDispatcher {
     //Servlet 6.1 (EE11)
     private static volatile boolean isEE11 = false;
 
-    /**
-     * Indicates whether any interceptors are currently being used. This is for performance
-     * reasons, to avoid using the default executor when no interceptors are registered
-     */
-    private static volatile boolean anyInterceptorsActive;
-
     private static volatile TaskContextFactory taskContextFactory;
 
     public static Optional<TaskContextFactory> getTaskContextFactory() {
-        return Optional.ofNullable(taskContextFactory).filter(tcf -> anyInterceptorsActive);
+        return Optional.ofNullable(taskContextFactory);
     }
 
     @Reference(cardinality = OPTIONAL, policy = DYNAMIC)
@@ -113,27 +102,6 @@ public class HttpDispatcher {
     protected synchronized void unsetTaskContextFactory(final TaskContextFactory tcf) {
         if (tcf == taskContextFactory) {
             taskContextFactory = null;
-        }
-    }
-
-    /**
-     * A Set of interceptors that are all given a chance to wrap tasks that are submitted
-     * to the executor for execution.
-     */
-    private final Set<Object> interceptors = new HashSet<>();
-
-    @Reference(cardinality = MULTIPLE, policy = DYNAMIC, policyOption = GREEDY)
-    protected void setInterceptor(ExecutorServiceTaskInterceptor interceptor) {
-        synchronized (interceptors) {
-            interceptors.add(interceptor);
-            anyInterceptorsActive = true;
-        }
-    }
-
-    protected void unsetInterceptor(ExecutorServiceTaskInterceptor interceptor) {
-        synchronized (interceptors) {
-            interceptors.remove(interceptor);
-            anyInterceptorsActive = !interceptors.isEmpty();
         }
     }
 
@@ -336,7 +304,7 @@ public class HttpDispatcher {
      *
      * The helper class TrustedHeaderOriginLists is used to maintain lists of trusted hosts, and to perform lookups.
      *
-     * @param trustedPrivateHeaderHosts String[] of hosts to trust for non-sensitive private headers
+     * @param trustedPrivateHeaderHosts   String[] of hosts to trust for non-sensitive private headers
      * @param trustedSensitiveHeaderHosts String[] of hosts to trust for sensitive private headers
      */
     private synchronized void parseTrustedPrivateHeaderOrigin(String[] trustedPrivateHeaderHosts, String[] trustedSensitiveHeaderHosts) {
@@ -386,7 +354,7 @@ public class HttpDispatcher {
     }
 
     /**
-     * @param addr the remote address to check
+     * @param addr     the remote address to check
      * @param HostName the remote host to check
      * @return true if private headers should be used (the default is true)
      */
@@ -395,7 +363,7 @@ public class HttpDispatcher {
     }
 
     /**
-     * @param hostAddr the remote address to check
+     * @param hostAddr   the remote address to check
      * @param headerName the name of the header to check
      * @return true if private headers should be used (the default is true when headerName is not sensitive)
      */
@@ -405,8 +373,8 @@ public class HttpDispatcher {
     }
 
     /**
-     * @param hostAddr the remote address to check
-     * @param hostName the remote host to check
+     * @param hostAddr   the remote address to check
+     * @param hostName   the remote host to check
      * @param headerName the name of the header to check
      * @return true if private headers should be used (the default is true when headerName is not sensitive)
      */
@@ -455,7 +423,7 @@ public class HttpDispatcher {
      * trustedSensitiveHeaderOrigin takes precedence over trustedHeaderOrigin; so if trustedHeaderOrigin="none"
      * while trustedSensitiveHeaderOrigin="*", non-sensitive headers will still be trusted for all hosts.
      *
-     * @param addr the remote address to check
+     * @param addr       the remote address to check
      * @param headerName the name of the header to check
      * @return true if hostAddr is a trusted source of private headers
      */
@@ -583,25 +551,12 @@ public class HttpDispatcher {
             executorService = null;
     }
 
-    /**
-     * Access the collaboration engine.
-     *
-     * @return CollaborationEngine - null if not found
-     */
-    public static ExecutorService getExecutorService() {
-        HttpDispatcher f = instance.get();
-        if (f == null) {
-            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
+    public static Optional<ExecutorService> getExecutorService() {
+        return Optional.of(instance).map(AtomicReference::get).map(d -> d.executorService).map(Optional::of).orElseGet(() -> {
+            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled())
                 Tr.event(tc, "HttpDispatcher instance not found");
-            }
-            return null;
-        } else {
-            if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
-                Tr.event(tc, "HttpDispatcher instance: " + f.toString());
-            }
-            return f.executorService;
-        }
-
+            return Optional.empty();
+        });
     }
 
     /**
@@ -802,12 +757,8 @@ public class HttpDispatcher {
      *
      * @return WorkClassifier - null if not found
      */
-    public static WorkClassifier getWorkClassifier() {
-        HttpDispatcher f = instance.get();
-        if (f != null)
-            return f.workClassifier;
-
-        return null;
+    public static Optional<WorkClassifier> getWorkClassifier() {
+        return Optional.of(instance).map(AtomicReference::get).map(d -> d.workClassifier);
     }
 
     /**

@@ -9,6 +9,8 @@
  *******************************************************************************/
 package com.ibm.ws.threading;
 
+import java.util.function.Consumer;
+
 import com.ibm.wsspi.threading.TaskContext;
 import com.ibm.wsspi.threading.TaskContext.Key;
 
@@ -16,34 +18,30 @@ import com.ibm.wsspi.threading.TaskContext.Key;
  *
  */
 public interface TaskContextFactory {
-    interface TaskContextSetter {
-        /**
-         * Set a piece of context information for a task, if it is not already
-         * set.
-         *
-         * @param key
-         *            represents the type of information being supplied
-         * @param value
-         *            the piece of context information, must not be
-         *            <code>null</code>
-         * @return this object
-         */
-        TaskContextSetter set(Key key, String value);
-    }
+	interface TaskContextSetter {
+		/**
+		 * Set a piece of context information for a task, if it is not already set.
+		 *
+		 * @param key   represents the type of information being supplied
+		 * @param value the piece of context information, must not be <code>null</code>
+		 * @return this object
+		 */
+		TaskContextSetter set(Key key, String value);
 
-    /**
-     * Create the task context for the current thread.
-     *
-     * @param type
-     *            the type of context
-     * @return an interface that allows the context to be populated
-     * @throws IllegalStateException
-     *             if a task context exists for this thread
-     */
-    TaskContextSetter createTaskContext(TaskContext.Type type);
+	}
 
-    /**
-     * Clear the task context from the current thread.
-     */
-    void zapTaskContext();
+	interface TaskContextZapper extends AutoCloseable {
+		@Override
+		void close();
+	}
+
+	/**
+	 * Create the task context for the current thread and pass a way to create it.
+	 * Using command/query separation pattern
+	 *
+	 * @param type the type of context
+	 * @return an interface that allows the context to be populated
+	 * @throws IllegalStateException if a task context exists for this thread
+	 */
+	TaskContextZapper create(TaskContext.Type type, Consumer<TaskContextSetter> action);
 }

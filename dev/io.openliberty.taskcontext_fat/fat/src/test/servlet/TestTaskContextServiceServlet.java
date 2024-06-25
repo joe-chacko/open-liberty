@@ -12,38 +12,38 @@
  */
 package test.servlet;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import javax.servlet.annotation.WebServlet;
 
 import org.junit.Test;
 
 import componenttest.app.FATServlet;
+import test.bundle.TestService;
 
 @SuppressWarnings("serial")
 @WebServlet("/TTCSS")
 public class TestTaskContextServiceServlet extends FATServlet {
-    // @Test
-    // public void testHttpServletRequest(HttpServletRequest request,
-    // HttpServletResponse resp) throws Exception {
-    // resp.getWriter().println("Running test method 'testHttpServletRequest'");
-    // }
-    //
-    // @Test
-    // public void testTestServiceIsActivated() {
-    // assertNotNull("TestService should have been activated",
-    // TestService.getInstance());
-    // }
-    //
-    // @Test
-    // public void testTestServiceHasBeenInjectedWithTaskContextService() {
-    // assertEquals("TestService should have exactly one TaskContextService", 1,
-    // TestService.getInstance().contextProviders.size());
-    // }
-    //
-    // @Test
-    // public void testTaskContextNotAvailableInServlet() {
-    // assertNull("TaskContext should be null when retrieved from a servlet",
-    // TestService.getInstance().contextProviders.iterator().next().getTaskContext());
-    // }
+	
+     @Test
+     public void testTestServiceIsActivated() {
+     assertNotNull("TestService should have been activated",
+     TestService.getInstance());
+     }
+    
+     @Test
+     public void testTestServiceHasBeenInjectedWithTaskContextService() {
+     assertEquals("TestService should have exactly one TaskContextService", 1,
+     TestService.getInstance().contextProviders.size());
+     }
+    
+     @Test
+     public void testTaskContextNotAvailableInServlet() {
+     assertNull("TaskContext should be null when retrieved from a servlet",
+     TestService.getInstance().contextProviders.iterator().next().getTaskContext());
+     }
 
     @Test
     public void testHttpContext() {

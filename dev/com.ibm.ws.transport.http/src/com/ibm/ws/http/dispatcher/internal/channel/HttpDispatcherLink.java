@@ -20,6 +20,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,6 +44,7 @@ import com.ibm.ws.http.dispatcher.internal.HttpDispatcher;
 import com.ibm.ws.http.internal.VirtualHostImpl;
 import com.ibm.ws.http.internal.VirtualHostMap;
 import com.ibm.ws.http.internal.VirtualHostMap.RequestHelper;
+import com.ibm.ws.threading.TaskContextFactory;
 import com.ibm.ws.transport.access.TransportConnectionAccess;
 import com.ibm.ws.transport.access.TransportConstants;
 import com.ibm.wsspi.channelfw.ConnectionLink;
@@ -55,7 +57,6 @@ import com.ibm.wsspi.http.HttpRequest;
 import com.ibm.wsspi.http.HttpResponse;
 import com.ibm.wsspi.http.SSLContext;
 import com.ibm.wsspi.http.URLEscapingUtils;
-import com.ibm.wsspi.http.WorkClassifier;
 import com.ibm.wsspi.http.channel.HttpRequestMessage;
 import com.ibm.wsspi.http.channel.HttpResponseMessage;
 import com.ibm.wsspi.http.channel.values.ConnectionValues;
@@ -391,7 +392,8 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
         this.response.init(this.isc);
         linkIsReady = true;
 
-        ExecutorService executorService = HttpDispatcher.getExecutorService();
+        ExecutorService executorService = HttpDispatcher.getExecutorService().orElse(null);
+
         if (null == executorService) {
             if (TraceComponent.isAnyTracingEnabled() && tc.isEventEnabled()) {
                 Tr.event(tc, "Missing executor service");
@@ -458,33 +460,34 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
      * needs to be updated.
      */
     private void wrapHandlerAndExecute(Runnable handler) {
-        // wrap handler and execute
-        TaskWrapper taskWrapper = new TaskWrapper(handler, this);
-        HttpDispatcher.getTaskContextFactory().map(tcf -> tcf.createTaskContext(TaskContext.Type.HTTP)).ifPresent(ctx -> {
+
+        Optional<TaskContextFactory> taskContextFactory = HttpDispatcher.getTaskContextFactory();
+        try (TaskContextFactory.TaskContextZapper zapper = taskContextFactory.map(tcf -> tcf.create(TaskContext.Type.HTTP, ctx -> {
             ctx.set(Key.INBOUND_HOSTNAME, requireNonNull(this.request.getVirtualHost(), "Virtual Host name should not be null"));
             ctx.set(Key.INBOUND_PORT, Integer.toString(this.request.getVirtualPort()));
             ctx.set(Key.URI, requireNonNull(this.request.getURI(), "URI should not be null"));
             ctx.set(Key.METHOD_NAME, requireNonNull(this.request.getMethod(), "Method name should not be null"));
-            //TODO Do something with ctx
-        });
+        })).orElse(null)) {
 
-        WorkClassifier workClassifier = HttpDispatcher.getWorkClassifier();
-        if (workClassifier != null) {
+            // wrap handler and execute
+            TaskWrapper taskWrapper = new TaskWrapper(handler, this);
+
             // Obtain the Executor from the WorkClassifier
             // TODO: the WLM classifier uses getVirtualHost and getVirtualPort, which may have
             // a different answer than what was used to find the virtual host (based on plugin headers,
             // and whether or not the Host header, etc. should be used)
             // Does it matter?
-            Executor classifyExecutor = workClassifier.classify(this.request, this);
 
-            if (classifyExecutor != null) {
-                taskWrapper.setClassifiedExecutor(classifyExecutor);
-                classifyExecutor.execute(taskWrapper);
+            Optional<Executor> executor = HttpDispatcher.getWorkClassifier().map(wc -> wc.classify(this.request, this));
+
+            if (executor.isPresent()) {
+                taskWrapper.setClassifiedExecutor(executor.get());
+                executor.get().execute(taskWrapper);
+            } else if (taskContextFactory.isPresent()) {
+                HttpDispatcher.getExecutorService().get().execute(taskWrapper);
             } else {
                 taskWrapper.run();
             }
-        } else {
-            taskWrapper.run();
         }
     }
 
@@ -771,7 +774,7 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
      * It is the value of the part before ":" in the Host header value, if any,
      * or the resolved server name, or the server IP address.
      *
-     * @param request the inbound request
+     * @param request        the inbound request
      * @param remoteHostAddr the requesting client IP address
      */
     @Override
@@ -802,8 +805,8 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
      * the part after ":" in the Host header value, if any, or the server port
      * where the client connection was accepted on.
      *
-     * @param request the inbound request
-     * @param localPort the server port where the client connection was accepted on.
+     * @param request        the inbound request
+     * @param localPort      the server port where the client connection was accepted on.
      * @param remoteHostAddr the requesting client IP address
      */
     @Override
