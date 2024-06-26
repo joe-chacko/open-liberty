@@ -9,6 +9,12 @@
  *******************************************************************************/
 package com.ibm.ws.http.dispatcher.internal.channel;
 
+import static com.ibm.ws.http.dispatcher.internal.HttpDispatcher.getTaskContextFactory;
+import static com.ibm.wsspi.threading.TaskContext.Key.INBOUND_HOSTNAME;
+import static com.ibm.wsspi.threading.TaskContext.Key.INBOUND_PORT;
+import static com.ibm.wsspi.threading.TaskContext.Key.METHOD_NAME;
+import static com.ibm.wsspi.threading.TaskContext.Key.URI;
+import static com.ibm.wsspi.threading.TaskContext.Type.HTTP;
 import static java.util.Objects.requireNonNull;
 
 import java.io.Closeable;
@@ -66,7 +72,7 @@ import com.ibm.wsspi.http.ee7.HttpInboundConnectionExtended;
 import com.ibm.wsspi.http.ee8.Http2InboundConnection;
 import com.ibm.wsspi.tcpchannel.TCPConnectionContext;
 import com.ibm.wsspi.threading.TaskContext;
-import com.ibm.wsspi.threading.TaskContext.Key;
+import com.ibm.wsspi.threading.WithContext;
 
 /**
  * Connection link object that the HTTP dispatcher provides to CHFW
@@ -454,6 +460,18 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
         }
     }
 
+    private Optional<TaskContext> getTaskContext() {
+        Optional<TaskContextFactory> opt = getTaskContextFactory();
+        if (opt.isEmpty()) {
+            return Optional.empty();
+        }
+        String port = Integer.toString(request.getVirtualPort());
+        String host = requireNonNull(request.getVirtualHost(), "Virtual Host name should not be null");
+        String uri = requireNonNull(request.getURI(), "URI should not be null");
+        String method = requireNonNull(request.getMethod(), "Method name should not be null");
+        return opt.map(tcf -> tcf.forType(HTTP).set(INBOUND_HOSTNAME, host).set(INBOUND_PORT, port).set(URI, uri).set(METHOD_NAME, method).build());
+    }
+
     /**
      * Note if the signature of this method is changed, the signature in
      * HttpDispatcherLinkWrapHandlerAndExecuteTransformDescriptor.java
@@ -461,34 +479,22 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
      */
     private void wrapHandlerAndExecute(Runnable handler) {
 
-        Optional<TaskContextFactory> taskContextFactory = HttpDispatcher.getTaskContextFactory();
-        try (TaskContextFactory.TaskContextZapper zapper = taskContextFactory.map(tcf -> tcf.create(TaskContext.Type.HTTP, ctx -> {
-            ctx.set(Key.INBOUND_HOSTNAME, requireNonNull(this.request.getVirtualHost(), "Virtual Host name should not be null"));
-            ctx.set(Key.INBOUND_PORT, Integer.toString(this.request.getVirtualPort()));
-            ctx.set(Key.URI, requireNonNull(this.request.getURI(), "URI should not be null"));
-            ctx.set(Key.METHOD_NAME, requireNonNull(this.request.getMethod(), "Method name should not be null"));
-        })).orElse(null)) {
+        // Wrap handler and execute
+        TaskWrapper taskWrapper = new TaskWrapper(handler, this, getTaskContext().orElse(null));
+        // Obtain the Executor from the WorkClassifier
+        Optional<Executor> executor = HttpDispatcher.getWorkClassifier().map(wc -> wc.classify(this.request, this));
 
-            // wrap handler and execute
-            TaskWrapper taskWrapper = new TaskWrapper(handler, this);
-
-            // Obtain the Executor from the WorkClassifier
-            // TODO: the WLM classifier uses getVirtualHost and getVirtualPort, which may have
-            // a different answer than what was used to find the virtual host (based on plugin headers,
-            // and whether or not the Host header, etc. should be used)
-            // Does it matter?
-
-            Optional<Executor> executor = HttpDispatcher.getWorkClassifier().map(wc -> wc.classify(this.request, this));
-
-            if (executor.isPresent()) {
-                taskWrapper.setClassifiedExecutor(executor.get());
-                executor.get().execute(taskWrapper);
-            } else if (taskContextFactory.isPresent()) {
-                HttpDispatcher.getExecutorService().get().execute(taskWrapper);
-            } else {
-                taskWrapper.run();
-            }
+        //The workclassifier and task interceptors are things
+        //that are provided by extenders of Liberty (First & Second blocks) in if below:
+        if (executor.isPresent()) {
+            taskWrapper.setClassifiedExecutor(executor.get());
+            executor.get().execute(taskWrapper);
+        } else if (getTaskContextFactory().isPresent()) {
+            HttpDispatcher.getExecutorService().get().execute(taskWrapper);
+        } else {
+            taskWrapper.run();
         }
+
     }
 
     @Override
@@ -1249,15 +1255,22 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
     /**
      * Wrapper for the runnable returned by discriminate - to handle exceptions from badly-behaved containers
      */
-    static class TaskWrapper implements Runnable {
+    static class TaskWrapper implements Runnable, WithContext {
         private final Runnable runnable;
         private final HttpDispatcherLink ic;
         private Executor classifiedExecutor;
+        private final TaskContext ctx;
 
-        public TaskWrapper(Runnable run, HttpDispatcherLink inboundConnection) {
+        public TaskWrapper(Runnable run, HttpDispatcherLink inboundConnection, TaskContext ctx) {
             this.runnable = run;
             this.ic = inboundConnection;
             this.classifiedExecutor = null;
+            this.ctx = ctx;
+        }
+
+        @Override
+        public Optional<TaskContext> getTaskContext() {
+            return Optional.ofNullable(ctx);
         }
 
         public void setClassifiedExecutor(Executor classifiedExecutor) {
@@ -1367,7 +1380,7 @@ public class HttpDispatcherLink extends InboundApplicationLink implements HttpIn
                 if (TraceComponent.isAnyTracingEnabled() && tc.isDebugEnabled()) {
                     Tr.debug(tc, "Body needed for request. Queueing data locally before upgrade.");
                 }
-                HttpInputStreamImpl body = this.request.getBody();
+                HttpInputStreamImpl body = request.getBody();
                 body.setupChannelMultiRead();
                 byte[] inBytes = new byte[1024];
                 try {

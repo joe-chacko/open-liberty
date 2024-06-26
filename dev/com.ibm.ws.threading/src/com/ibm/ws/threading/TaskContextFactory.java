@@ -9,39 +9,55 @@
  *******************************************************************************/
 package com.ibm.ws.threading;
 
-import java.util.function.Consumer;
+import static java.util.Objects.requireNonNull;
+
+import java.util.EnumMap;
+
+import org.osgi.framework.ServiceReference;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 import com.ibm.wsspi.threading.TaskContext;
 import com.ibm.wsspi.threading.TaskContext.Key;
+import com.ibm.wsspi.threading.TaskContext.Type;
+import com.ibm.wsspi.threading.TaskInterceptor;
 
 /**
  *
  */
-public interface TaskContextFactory {
-	interface TaskContextSetter {
-		/**
-		 * Set a piece of context information for a task, if it is not already set.
-		 *
-		 * @param key   represents the type of information being supplied
-		 * @param value the piece of context information, must not be <code>null</code>
-		 * @return this object
-		 */
-		TaskContextSetter set(Key key, String value);
+@Component(service = TaskContextFactory.class)
+public class TaskContextFactory {
+
+	@Activate
+	public TaskContextFactory(@Reference ServiceReference<TaskInterceptor> s) {
 
 	}
 
-	interface TaskContextZapper extends AutoCloseable {
-		@Override
-		void close();
+	public static class Builder {
+		final Type type;
+		final EnumMap<Key, String> map = new EnumMap<>(Key.class);
+
+		Builder(Type type) {
+			this.type = type;
+		}
+
+		public Builder set(Key key, String value) {
+			Object existing = map.putIfAbsent(requireNonNull(key), value);
+			if (null != existing) {
+				throw new IllegalStateException("Cannot overwrite existing value '" + existing + "' for key '" + key
+												+ "' with new value '" + value + "'");
+			}
+			return this;
+		}
+
+		public TaskContext build() {
+			return new TaskContextImpl(this);
+		}
 	}
 
-	/**
-	 * Create the task context for the current thread and pass a way to create it.
-	 * Using command/query separation pattern
-	 *
-	 * @param type the type of context
-	 * @return an interface that allows the context to be populated
-	 * @throws IllegalStateException if a task context exists for this thread
-	 */
-	TaskContextZapper create(TaskContext.Type type, Consumer<TaskContextSetter> action);
+	public TaskContextFactory.Builder forType(Type type) {
+		return new TaskContextFactory.Builder(type);
+	}
+
 }

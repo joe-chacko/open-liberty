@@ -57,11 +57,10 @@ Service-Component=com.ibm.ws.threading.internal.DeferrableScheduledExecutorImpl;
     com.ibm.ws.threading.CompletionStageFactory, \
     com.ibm.ws.threading.PolicyExecutorProvider,\
     com.ibm.ws.threading.internal.ExecutorServiceImpl, \
-    com.ibm.ws.threading.internal.TaskContextServiceImpl, \
+    com.ibm.ws.threading.TaskContextFactory, \
     com.ibm.ws.threading.internal.ThreadingIntrospector, \
     com.ibm.ws.threading.internal.VirtualThreadDisallowed, \
-    io.openliberty.threading.virtual.internal.VirtualThreadOperations, \
-    com.ibm.ws.threading.internal.TaskContextServiceImpl$TaskContextHolder
+    io.openliberty.threading.virtual.internal.VirtualThreadOperations
 
 instrument.classesExcludes: com/ibm/ws/threading/internal/resources/*.class
 
