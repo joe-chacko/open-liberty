@@ -89,15 +89,13 @@ public final class ExecutorServiceImpl
 
     /**
      * The smallest size for the pool - smaller coreThreads and/or maxThreads
-     * config
-     * values are replaced with this value.
+     * config values are replaced with this value.
      */
     final static int MINIMUM_POOL_SIZE = 4;
 
     /**
      * Amount of time to wait for quiesce work to complete before continuing
-     * with
-     * shutdown.
+     * with shutdown.
      */
     final static int MINIMUM_QUIESCE_TIMEOUT = 30;
     protected int quiesceTimeout = MINIMUM_QUIESCE_TIMEOUT;
@@ -118,8 +116,7 @@ public final class ExecutorServiceImpl
     /**
      * Indicates whether any interceptors are currently being used. This is for
      * performance reasons, to avoid getting an iterator over an empty set for
-     * every
-     * task that is submitted.
+     * every task that is submitted.
      */
     boolean interceptorsActive = false;
 
@@ -379,8 +376,7 @@ public final class ExecutorServiceImpl
     @Override
     public <T> List<Future<T>> invokeAll(
             Collection<? extends Callable<T>> tasks, long timeout,
-            TimeUnit unit)
-            throws InterruptedException {
+            TimeUnit unit) throws InterruptedException {
         threadPoolController.resumeIfPaused();
         return threadPool.invokeAll(interceptorsActive ? wrap(tasks) : tasks,
                 timeout, unit);
@@ -472,10 +468,9 @@ public final class ExecutorServiceImpl
      * For internal use only. Invoker is responsible for ensuring that the
      * interceptors are applied to the underlying task that the proxy eventually
      * delegates to. This allows the proxy Runnable to be offered directly to
-     * the
-     * BlockingQueue, which can then identify information about it, such as
-     * whether
-     * it ought to be expedited instead of inserted at the tail of the queue.
+     * the BlockingQueue, which can then identify information about it, such as
+     * whether it ought to be expedited instead of inserted at the tail of the
+     * queue.
      *
      * @param proxy
      */
@@ -501,14 +496,11 @@ public final class ExecutorServiceImpl
 
     /**
      * Shutdown a thread pool while still allowing current users to submit new
-     * work
-     * to it. The standard ThreadPoolExecutor.shutdown() method causes any new
-     * work
-     * to get rejected while the pool is shutting down. A soft shutdown, on the
-     * other hand, will still allow new work to get submitted while the pool is
-     * shutting down. The thread pool will stay alive until no more references
-     * to it
-     * exist and all work in the queue has been processed.
+     * work to it. The standard ThreadPoolExecutor.shutdown() method causes any
+     * new work to get rejected while the pool is shutting down. A soft
+     * shutdown, on the other hand, will still allow new work to get submitted
+     * while the pool is shutting down. The thread pool will stay alive until no
+     * more references to it exist and all work in the queue has been processed.
      *
      * @param threadPool
      *            the ThreadPoolExecutor to shutdown
@@ -582,11 +574,9 @@ public final class ExecutorServiceImpl
     Runnable wrap(Runnable r) {
 
         WithContext wc = Optional.of(r).filter(WithContext.class::isInstance)
-                .map(WithContext.class::cast)
-                .orElse(Optional::empty);
-        // TODO Check that the 3rd argument can be null
+                .map(WithContext.class::cast).orElse(Optional::empty);
         return interceptors.stream().sequential().reduce(r,
-                (r2, i) -> i.wrapWithContext(r2, wc), null);
+                (r2, i) -> i.wrapWithContext(r2, wc), this::requireNotParallel);
     }
 
     private <T> Callable<T> createWrappedCallable(Callable<T> in) {
@@ -599,11 +589,13 @@ public final class ExecutorServiceImpl
 
     <T> Callable<T> wrap(Callable<T> c) {
         WithContext wc = Optional.of(c).filter(WithContext.class::isInstance)
-                .map(WithContext.class::cast)
-                .orElse(Optional::empty);
-        // TODO Check that the 3rd argument can be null
+                .map(WithContext.class::cast).orElse(Optional::empty);
         return interceptors.stream().sequential().reduce(c,
-                (c2, i) -> i.wrapWithContext(c2, wc), null);
+                (c2, i) -> i.wrapWithContext(c2, wc), this::requireNotParallel);
+    }
+
+    private <U> U requireNotParallel(U u1, U u2) {
+        throw new UnsupportedOperationException();
     }
 
     // This is private, so handling both interceptors and wrapping in this
