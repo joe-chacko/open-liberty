@@ -12,38 +12,23 @@
  */
 package test.servlet;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-
 import javax.servlet.annotation.WebServlet;
 
 import org.junit.Test;
 
 import componenttest.app.FATServlet;
-import test.bundle.TestService;
+import test.bundle.TestTaskInterceptor;
 
 @SuppressWarnings("serial")
 @WebServlet("/TTCSS")
 public class TestTaskContextServiceServlet extends FATServlet {
-	
-     @Test
-     public void testTestServiceIsActivated() {
-     assertNotNull("TestService should have been activated",
-     TestService.getInstance());
-     }
-    
-     @Test
-     public void testTestServiceHasBeenInjectedWithTaskContextService() {
-     assertEquals("TestService should have exactly one TaskContextService", 1,
-     TestService.getInstance().contextProviders.size());
-     }
-    
-     @Test
-     public void testTaskContextNotAvailableInServlet() {
-     assertNull("TaskContext should be null when retrieved from a servlet",
-     TestService.getInstance().contextProviders.iterator().next().getTaskContext());
-     }
+
+    @Test
+    public void testTestTaskInterceptorIsActivated() {
+        assertNotNull("TestTaskInterceptor should have been activated",
+                TestTaskInterceptor.getInstance());
+    }
 
     @Test
     public void testHttpContext() {

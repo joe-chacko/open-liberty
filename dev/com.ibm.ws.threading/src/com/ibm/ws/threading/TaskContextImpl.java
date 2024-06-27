@@ -22,57 +22,57 @@ import com.ibm.wsspi.threading.RunnableWithContext;
 import com.ibm.wsspi.threading.TaskContext;
 
 public class TaskContextImpl implements TaskContext {
-	private final Type type;
-	private final Map<Key, String> map;
+    private final Type type;
+    private final Map<Key, String> map;
 
-	TaskContextImpl(TaskContextFactory.Builder b) {
-		this.type = b.type;
-		this.map = unmodifiableMap(new EnumMap<>(b.map));
-	}
+    TaskContextImpl(TaskContextFactory.Builder b) {
+        this.type = b.type;
+        this.map = unmodifiableMap(new EnumMap<>(b.map));
+    }
 
-	public Runnable wrap(Runnable r) {
-		return new RunnableWithContext() {
+    public Runnable wrap(Runnable r) {
+        return new RunnableWithContext() {
 
-			@Override
-			public Optional<TaskContext> getTaskContext() {
-				return Optional.of(TaskContextImpl.this);
-			}
+            @Override
+            public Optional<TaskContext> getTaskContext() {
+                return Optional.of(TaskContextImpl.this);
+            }
 
-			@Override
-			public void run() {
-				r.run();
-			}
-		};
-	}
+            @Override
+            public void run() {
+                r.run();
+            }
+        };
+    }
 
-	public <T> CallableWithContext<T> wrap(Callable<T> c) {
-		return new CallableWithContext<T>() {
+    public <T> CallableWithContext<T> wrap(Callable<T> c) {
+        return new CallableWithContext<T>() {
 
-			@Override
-			public T call() throws Exception {
-				return c.call();
-			}
+            @Override
+            public T call() throws Exception {
+                return c.call();
+            }
 
-			@Override
-			public Optional<TaskContext> getTaskContext() {
-				return Optional.of(TaskContextImpl.this);
-			}
-		};
-	}
+            @Override
+            public Optional<TaskContext> getTaskContext() {
+                return Optional.of(TaskContextImpl.this);
+            }
+        };
+    }
 
-	@Override
-	public Type type() {
-		return type;
-	}
+    @Override
+    public Type type() {
+        return type;
+    }
 
-	@Override
-	public String get(Key key) {
-		return map.get(key);
-	}
+    @Override
+    public String get(Key key) {
+        return map.get(key);
+    }
 
-	@Override
-	public Stream<Key> keys() {
-		return map.keySet().stream();
-	}
+    @Override
+    public Stream<Key> keys() {
+        return map.keySet().stream();
+    }
 
 }

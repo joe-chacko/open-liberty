@@ -39,24 +39,26 @@ import java.util.concurrent.Callable;
  * after every single task executed by the application server. This is not a
  * common need, and so careful consideration should be given before registering
  * an implementation.
+ *
+ * @deprecated use {@link TaskInterceptor} instead
  */
-@Deprecated(since = "1.2")
+@Deprecated
 public interface ExecutorServiceTaskInterceptor extends TaskInterceptor {
-	default Runnable wrap(Runnable r) {
-		throw new UnsupportedOperationException();
-	}
+    default Runnable wrap(Runnable r) {
+        throw new UnsupportedOperationException();
+    }
 
-	default <T> Callable<T> wrap(Callable<T> c) {
-		throw new UnsupportedOperationException();
-	}
+    default <T> Callable<T> wrap(Callable<T> c) {
+        throw new UnsupportedOperationException();
+    }
 
-	@Override
-	default Runnable wrapWithContext(Runnable r, WithContext wc) {
-		return wrap(r);
-	}
+    @Override
+    default Runnable wrapWithContext(Runnable r, WithContext wc) {
+        return wrap(r);
+    }
 
-	@Override
-	default <T> Callable<T> wrapWithContext(Callable<T> c, WithContext wc) {
-		return wrap(c);
-	}
+    @Override
+    default <T> Callable<T> wrapWithContext(Callable<T> c, WithContext wc) {
+        return wrap(c);
+    }
 }

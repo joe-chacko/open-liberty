@@ -1,6 +1,5 @@
 package test.bundle;
 
-import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -9,27 +8,19 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
-import org.osgi.service.component.annotations.Reference;
 
-import com.ibm.wsspi.threading.ExecutorServiceTaskInterceptor;
 import com.ibm.wsspi.threading.TaskContext;
-import com.ibm.wsspi.threading.TaskContextService;
+import com.ibm.wsspi.threading.TaskInterceptor;
+import com.ibm.wsspi.threading.WithContext;
 
 @Component
-public class TestService implements ExecutorServiceTaskInterceptor {
+public class TestTaskInterceptor implements TaskInterceptor {
     private static final AtomicInteger activatedCount = new AtomicInteger();
     private final int instance = activatedCount.incrementAndGet();
-    private static final AtomicReference<TestService> lastInstance = new AtomicReference<>();
+    private static final AtomicReference<TestTaskInterceptor> lastInstance = new AtomicReference<>();
     public static final ThreadLocal<TaskContext> lastContext = new ThreadLocal<>();
 
-    /**
-     * The Service Context Registry (from Apache Felix at time of writing)
-     * should keep this populated with all the available TaskContextServices.
-     */
-    @Reference
-    public volatile Collection<TaskContextService> contextProviders;
-
-    public static TestService getInstance() {
+    public static TestTaskInterceptor getInstance() {
         return lastInstance.get();
     }
 
@@ -42,13 +33,6 @@ public class TestService implements ExecutorServiceTaskInterceptor {
     @Deactivate
     protected void deactivate() {
         lastInstance.compareAndSet(this, null);
-    }
-
-    @Override
-    public Runnable wrap(Runnable r) {
-        final Callable<Void> callable = convertRunnableToCallable(r);
-        final Callable<Void> wrappedCallable = wrap(callable);
-        return convertCallableToRunnable(wrappedCallable);
     }
 
     private static Runnable convertCallableToRunnable(Callable<?> c) {
@@ -69,11 +53,20 @@ public class TestService implements ExecutorServiceTaskInterceptor {
     }
 
     @Override
-    public <T> Callable<T> wrap(Callable<T> c) {
-        // THREAD 1 - pre-dispatch
-        // retrieve the task context now (the only time it should be non-null)
-        final Optional<TaskContext> tc = contextProviders.stream().findFirst()
-                .map(TaskContextService::getTaskContext);
+    public Runnable wrapWithContext(Runnable r, WithContext wc) {
+
+        final Callable<Void> callable = convertRunnableToCallable(r);
+        final Callable<Void> wrappedCallable = wrapWithContext(callable, wc);
+        return convertCallableToRunnable(wrappedCallable);
+
+        // TODO Auto-generated method stub
+        // throw new UnsupportedOperationException("Unimplemented method
+        // 'wrapWithContext'");
+    }
+
+    @Override
+    public <T> Callable<T> wrapWithContext(Callable<T> c, WithContext wc) {
+        final Optional<TaskContext> tc = wc.getTaskContext();
         new Throwable("wrapping callable " + c).printStackTrace(System.out);
         return () -> {
             // THREAD 2 - during dispatch
